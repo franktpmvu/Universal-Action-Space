@@ -148,6 +148,8 @@ class BaseRecognizer(nn.Module, metaclass=ABCMeta):
         Returns:
             torch.tensor: The extracted features.
         """
+        # print(imgs.shape)# torch.Size([1, 3, 32, 224, 224]), torch.Size([2, 32, 224, 224])
+
         if (hasattr(self.backbone, 'features')
                 and self.backbone_from == 'torchvision'):
             x = self.backbone.features(imgs)
@@ -285,6 +287,7 @@ class BaseRecognizer(nn.Module, metaclass=ABCMeta):
         """
         imgs = data_batch['imgs']
         label = data_batch['label']
+#         print(f'data_batch[label] = {label.shape}')
 
         aux_info = {}
         for item in self.aux_info:

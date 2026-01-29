@@ -17,7 +17,18 @@ from einops import rearrange
 class Mlp(nn.Module):
     """ Multilayer perceptron."""
 
-    def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
+    def __init__(self,
+                 in_features,
+                 hidden_features=None,
+                 out_features=None,
+                 act_layer=nn.GELU,
+                 drop=0.,
+                 lora_layer_type='qv',
+                 lora_r=4,
+                 lora_alpha=None,
+                 lora_drop=0.,             
+                ):
+        
         super().__init__()
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
@@ -26,12 +37,31 @@ class Mlp(nn.Module):
         self.fc2 = nn.Linear(hidden_features, out_features)
         self.drop = nn.Dropout(drop)
 
+        self.lora_layer_type = lora_layer_type
+        self.use_lora_mlp = (self.lora_layer_type in ['mlp', 'all']) and (lora_r is not None and lora_r > 0)
+        self.lora_alpha = lora_alpha if lora_alpha is not None else lora_r
+
+        if self.use_lora_mlp:
+            self.lora_fc1 = LoRALinear(in_features, hidden_features, r=lora_r, alpha=self.lora_alpha)
+            self.lora_fc2 = LoRALinear(hidden_features, out_features, r=lora_r, alpha=self.lora_alpha)
+            self.lora_drop = nn.Dropout(lora_drop)
+
     def forward(self, x):
-        x = self.fc1(x)
-        x = self.act(x)
+        
+        if self.use_lora_mlp:
+            x1 = self.fc1(x) + self.lora_drop(self.lora_fc1(x))
+        else:
+            x1 = self.fc1(x)
+            
+        x = self.act(x1)
         x = self.drop(x)
-        x = self.fc2(x)
-        x = self.drop(x)
+        
+        if self.use_lora_mlp:
+            x2 = self.fc2(x) + self.lora_drop(self.lora_fc2(x))
+        else:
+            x2 = self.fc2(x)
+            
+        x = self.drop(x2)
         return x
 
 
@@ -83,6 +113,21 @@ def get_window_size(x_size, window_size, shift_size=None):
     else:
         return tuple(use_window_size), tuple(use_shift_size)
 
+class LoRALinear(nn.Module):
+    def __init__(self, in_dim, out_dim, r, alpha):
+        super().__init__()
+        self.lora_A = nn.Linear(in_dim, r, bias=False)
+        self.lora_B = nn.Linear(r, out_dim, bias=False)
+        self.scaling = alpha / r
+        # print('we initialized with ')
+        nn.init.normal_(self.lora_A.weight)
+        nn.init.zeros_(self.lora_B.weight)
+
+    def forward(self, x):
+        return self.lora_B(self.lora_A(x)) * self.scaling
+
+
+
 
 class WindowAttention3D(nn.Module):
     """ Window based multi-head self attention (W-MSA) module with relative position bias.
@@ -97,7 +142,19 @@ class WindowAttention3D(nn.Module):
         proj_drop (float, optional): Dropout ratio of output. Default: 0.0
     """
 
-    def __init__(self, dim, window_size, num_heads, qkv_bias=False, qk_scale=None, attn_drop=0., proj_drop=0.):
+    def __init__(self,
+                 dim,
+                 window_size,
+                 num_heads,
+                 qkv_bias=False,
+                 qk_scale=None,
+                 attn_drop=0.,
+                 proj_drop=0.,
+                 use_lora=False,
+                 lora_rank=4,
+                 lora_alpha=None, 
+                 lora_layer_type='qv', # ['qv', 'qkv', 'qkvo', 'mlp', 'all']
+                ):
 
         super().__init__()
         self.dim = dim
@@ -105,6 +162,12 @@ class WindowAttention3D(nn.Module):
         self.num_heads = num_heads
         head_dim = dim // num_heads
         self.scale = qk_scale or head_dim ** -0.5
+
+
+        self.use_lora = use_lora
+        self.lora_rank = lora_rank
+        self.lora_alpha = lora_alpha if lora_alpha is not None else lora_rank
+        self.lora_layer_type = lora_layer_type
 
         # define a parameter table of relative position bias
         self.relative_position_bias_table = nn.Parameter(
@@ -128,9 +191,25 @@ class WindowAttention3D(nn.Module):
         self.register_buffer("relative_position_index", relative_position_index)
 
         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
+
+        
         self.attn_drop = nn.Dropout(attn_drop)
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
+
+
+        # LoRA branches (create only those requested)
+        if self.use_lora and self.lora_rank > 0 and self.lora_layer_type in ['qv', 'qkv', 'qkvo', 'all']:
+            # Q / V always for 'qv' family
+            self.lora_q = LoRALinear(dim, dim, self.lora_rank, self.lora_alpha)
+            self.lora_v = LoRALinear(dim, dim, self.lora_rank, self.lora_alpha)
+            # optional K
+            if ('k' in self.lora_layer_type) or (self.lora_layer_type == 'all'):
+                self.lora_k = LoRALinear(dim, dim, self.lora_rank, self.lora_alpha)
+            # optional O (output projection)
+            if ('o' in self.lora_layer_type) or (self.lora_layer_type == 'all'):
+                self.lora_o = LoRALinear(dim, dim, self.lora_rank, self.lora_alpha)
+
 
         trunc_normal_(self.relative_position_bias_table, std=.02)
         self.softmax = nn.Softmax(dim=-1)
@@ -144,6 +223,25 @@ class WindowAttention3D(nn.Module):
         B_, N, C = x.shape
         qkv = self.qkv(x).reshape(B_, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
         q, k, v = qkv[0], qkv[1], qkv[2]  # B_, nH, N, C
+
+        if self.use_lora:
+            # Apply LoRA to Q and V
+            # q = q + self.lora_q(x).reshape(B_, N, self.num_heads, C // self.num_heads).permute(0, 2, 1, 3)
+            # v = v + self.lora_v(x).reshape(B_, N, self.num_heads, C // self.num_heads).permute(0, 2, 1, 3)
+            
+            # if 'k' in self.lora_layer_type or self.lora_layer_type=='all':
+            #     k = k + self.lora_k(x).reshape(B_, N, self.num_heads, C // self.num_heads).permute(0, 2, 1, 3)
+                
+            if hasattr(self, 'lora_q'):
+                dq = self.lora_q(x).reshape(B_, N, self.num_heads, C // self.num_heads).permute(0, 2, 1, 3)
+                q = q + dq
+            if hasattr(self, 'lora_k'):
+                dk = self.lora_k(x).reshape(B_, N, self.num_heads, C // self.num_heads).permute(0, 2, 1, 3)
+                k = k + dk
+            if hasattr(self, 'lora_v'):
+                dv = self.lora_v(x).reshape(B_, N, self.num_heads, C // self.num_heads).permute(0, 2, 1, 3)
+                v = v + dv
+
 
         q = q * self.scale
         attn = q @ k.transpose(-2, -1)
@@ -164,9 +262,16 @@ class WindowAttention3D(nn.Module):
         attn = self.attn_drop(attn)
 
         x = (attn @ v).transpose(1, 2).reshape(B_, N, C)
-        x = self.proj(x)
-        x = self.proj_drop(x)
+        base = self.proj(x)
+        
+        if self.use_lora and self.lora_rank > 0 and hasattr(self, 'lora_o'):
+            out = base + self.lora_o(base)                   # Wo(x) + ΔWo(x)
+        else:
+            out = base
+        
+        x = self.proj_drop(out)
         return x
+
 
 
 class SwinTransformerBlock3D(nn.Module):
@@ -187,9 +292,24 @@ class SwinTransformerBlock3D(nn.Module):
         norm_layer (nn.Module, optional): Normalization layer.  Default: nn.LayerNorm
     """
 
-    def __init__(self, dim, num_heads, window_size=(2,7,7), shift_size=(0,0,0),
-                 mlp_ratio=4., qkv_bias=True, qk_scale=None, drop=0., attn_drop=0., drop_path=0.,
-                 act_layer=nn.GELU, norm_layer=nn.LayerNorm, use_checkpoint=False):
+    def __init__(self, dim,
+                 num_heads,
+                 window_size=(2,7,7),
+                 shift_size=(0,0,0),
+                 mlp_ratio=4.,
+                 qkv_bias=True,
+                 qk_scale=None,
+                 drop=0.,
+                 attn_drop=0.,
+                 drop_path=0.,
+                 act_layer=nn.GELU,
+                 norm_layer=nn.LayerNorm,
+                 use_checkpoint=False,
+                 use_lora=False,
+                 lora_rank=4,
+                 lora_alpha=None,
+                 lora_layer_type='qv',  # ['qv', 'qkv', 'mlp', 'all']
+                ):
         super().__init__()
         self.dim = dim
         self.num_heads = num_heads
@@ -204,13 +324,30 @@ class SwinTransformerBlock3D(nn.Module):
 
         self.norm1 = norm_layer(dim)
         self.attn = WindowAttention3D(
-            dim, window_size=self.window_size, num_heads=num_heads,
-            qkv_bias=qkv_bias, qk_scale=qk_scale, attn_drop=attn_drop, proj_drop=drop)
+            dim,
+            window_size=self.window_size,
+            num_heads=num_heads,
+            qkv_bias=qkv_bias,
+            qk_scale=qk_scale,
+            attn_drop=attn_drop,
+            proj_drop=drop,
+            lora_layer_type=lora_layer_type,
+            use_lora=use_lora,
+            lora_rank=lora_rank,
+            lora_alpha=lora_alpha)
 
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = norm_layer(dim)
         mlp_hidden_dim = int(dim * mlp_ratio)
-        self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
+        self.mlp = Mlp(in_features=dim,
+                       hidden_features=mlp_hidden_dim,
+                       act_layer=act_layer,
+                       drop=drop,
+                       lora_layer_type=lora_layer_type,
+                       lora_r=lora_rank,
+                       lora_alpha=lora_alpha,
+                       lora_drop=0.,
+                      )
 
     def forward_part1(self, x, mask_matrix):
         B, D, H, W, C = x.shape
@@ -360,13 +497,18 @@ class BasicLayer(nn.Module):
                  drop_path=0.,
                  norm_layer=nn.LayerNorm,
                  downsample=None,
-                 use_checkpoint=False):
+                 use_checkpoint=False,
+                 use_lora=False,
+                 lora_rank=4,
+                 lora_alpha=None,
+                 lora_layer_type='qv', # ['qv', 'qkv', 'mlp', 'all']
+                 ):
         super().__init__()
         self.window_size = window_size
         self.shift_size = tuple(i // 2 for i in window_size)
         self.depth = depth
         self.use_checkpoint = use_checkpoint
-
+        
         # build blocks
         self.blocks = nn.ModuleList([
             SwinTransformerBlock3D(
@@ -382,6 +524,10 @@ class BasicLayer(nn.Module):
                 drop_path=drop_path[i] if isinstance(drop_path, list) else drop_path,
                 norm_layer=norm_layer,
                 use_checkpoint=use_checkpoint,
+                use_lora = use_lora,
+                lora_rank = lora_rank,
+                lora_alpha = lora_alpha, 
+                lora_layer_type = lora_layer_type,
             )
             for i in range(depth)])
         
@@ -498,7 +644,13 @@ class SwinTransformer3D(nn.Module):
                  norm_layer=nn.LayerNorm,
                  patch_norm=False,
                  frozen_stages=-1,
-                 use_checkpoint=False):
+                 use_checkpoint=False,
+                 use_lora=False,
+                 lora_rank=0,
+                 lora_alpha=None, 
+                 lora_type='all',# ['all','first','last'] # lora in which model area, first = nears to the input, last = nears to the output
+                 lora_layer_type='qv' # ['qv', 'qkv', 'qkvo', 'mlp', 'all']
+                ):
         super().__init__()
 
         self.pretrained = pretrained
@@ -519,11 +671,56 @@ class SwinTransformer3D(nn.Module):
 
         # stochastic depth
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
+        
+        
+        
+        
+        # choose lora type
+        if not lora_type in ['all','first','last']:
+            print('undefine lora type')
+            assert False
+        print('testing the lora type code ')
+        print(lora_type)
+        
+        def should_use_lora(i_layer: int, num_layers: int, lora_type: str) -> bool:
+            if lora_type == 'all':
+                return True
+            if lora_type == 'first':
+                return i_layer == 0
+            if lora_type == 'last':
+                return i_layer == num_layers - 1
+            return False  # already validated, but keeps type-checkers happy
 
-        # build layers
+
         self.layers = nn.ModuleList()
+#         # build layers
+#         for i_layer in range(self.num_layers):
+#             layer = BasicLayer(
+#                 dim=int(embed_dim * 2**i_layer),
+#                 depth=depths[i_layer],
+#                 num_heads=num_heads[i_layer],
+#                 window_size=window_size,
+#                 mlp_ratio=mlp_ratio,
+#                 qkv_bias=qkv_bias,
+#                 qk_scale=qk_scale,
+#                 drop=drop_rate,
+#                 attn_drop=attn_drop_rate,
+#                 drop_path=dpr[sum(depths[:i_layer]):sum(depths[:i_layer + 1])],
+#                 norm_layer=norm_layer,
+#                 downsample=PatchMerging if i_layer<self.num_layers-1 else None,
+#                 use_checkpoint=use_checkpoint,
+#                 use_lora=use_lora,
+#                 lora_rank=lora_rank,
+#                 lora_alpha=lora_alpha                
+#             )
+#             self.layers.append(layer)
+
         for i_layer in range(self.num_layers):
-            layer = BasicLayer(
+            if use_lora:
+                use_lora_here = should_use_lora(i_layer, self.num_layers, lora_type)
+            else:
+                use_lora_here = False
+            common_kwargs = dict(
                 dim=int(embed_dim * 2**i_layer),
                 depth=depths[i_layer],
                 num_heads=num_heads[i_layer],
@@ -536,7 +733,17 @@ class SwinTransformer3D(nn.Module):
                 drop_path=dpr[sum(depths[:i_layer]):sum(depths[:i_layer + 1])],
                 norm_layer=norm_layer,
                 downsample=PatchMerging if i_layer<self.num_layers-1 else None,
-                use_checkpoint=use_checkpoint)
+                use_checkpoint=use_checkpoint,
+                use_lora=use_lora_here,
+            )
+            if use_lora_here:
+                common_kwargs.update(dict(
+                    lora_rank=lora_rank,
+                    lora_alpha=lora_alpha,
+                    lora_layer_type=lora_layer_type,
+                ))
+                
+            layer = BasicLayer(**common_kwargs)
             self.layers.append(layer)
 
         self.num_features = int(embed_dim * 2**(self.num_layers-1))
@@ -666,4 +873,3 @@ class SwinTransformer3D(nn.Module):
         """Convert the model into training mode while keep layers freezed."""
         super(SwinTransformer3D, self).train(mode)
         self._freeze_stages()
-

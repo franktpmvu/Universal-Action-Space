@@ -16,6 +16,13 @@ from mmcv_custom.runner import EpochBasedRunnerAmp
 import apex
 import os.path as osp
 
+def count_parameters(model, verbose=True):
+    total = sum(p.numel() for p in model.parameters())
+    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    if verbose:
+        print(f"{total:,} total parameters.")
+        print(f"{trainable:,} trainable parameters.")
+    return total, trainable
 
 def train_model(model,
                 dataset,
@@ -75,10 +82,26 @@ def train_model(model,
             for ds, setting in zip(dataset, dataloader_settings)
         ]
 
+
     else:
         data_loaders = [
             build_dataloader(ds, **dataloader_setting) for ds in dataset
         ]
+        
+        
+    if cfg.freeze_backbone:
+        print(f'\n freeze backbone!!! otherwise lora, clshead \n')
+        for k, v in model.named_modules():
+            if 'cls_head' not in k and 'lora' not in k:  # Freeze all modules except cls_head
+                for param in v.parameters():
+                    param.requires_grad = False
+            else:
+                print(k)
+                for param in v.parameters():
+                    param.requires_grad = True
+                    
+    total, trainable = count_parameters(model)
+#     assert False
 
     # build runner
     optimizer = build_optimizer(model, cfg.optimizer)

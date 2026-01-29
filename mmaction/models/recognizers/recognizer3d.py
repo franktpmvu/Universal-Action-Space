@@ -23,6 +23,10 @@ class Recognizer3D(BaseRecognizer):
 
         cls_score = self.cls_head(x)
         gt_labels = labels.squeeze()
+        
+#         print(f'imgs.shape = {imgs.shape}')
+#         print(f'labels.shape = {labels.shape}')
+#         print(f'gt_labels.shape = {gt_labels.shape}')
         loss_cls = self.cls_head.loss(cls_score, gt_labels, **kwargs)
         losses.update(loss_cls)
 
@@ -33,6 +37,8 @@ class Recognizer3D(BaseRecognizer):
         testing and gradcam."""
         batches = imgs.shape[0]
         num_segs = imgs.shape[1]
+        # print(imgs.shape)# torch.Size([1, 3, 32, 224, 224])
+
         imgs = imgs.reshape((-1, ) + imgs.shape[2:])
 
         if self.max_testing_views is not None:
@@ -87,7 +93,7 @@ class Recognizer3D(BaseRecognizer):
     def forward_test(self, imgs):
         """Defines the computation performed at every call when evaluation and
         testing."""
-        return self._do_test(imgs).cpu().numpy()
+        return self._do_test(imgs).detach().cpu().numpy()
 
     def forward_dummy(self, imgs, softmax=False):
         """Used for computing network FLOPs.

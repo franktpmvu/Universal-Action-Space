@@ -116,6 +116,11 @@ def main():
 
     # The flag is used to register module's hooks
     cfg.setdefault('module_hooks', [])
+    
+    # Set default freeze_backbone is hot training 
+    cfg.setdefault('freeze_backbone', False)
+
+    
 
     # create work_dir
     mmcv.mkdir_or_exist(osp.abspath(cfg.work_dir))

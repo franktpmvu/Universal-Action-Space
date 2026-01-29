@@ -11,7 +11,10 @@ from mmcv.utils import print_log
 from torch.utils.data import Dataset
 
 from ..core import (mean_average_precision, mean_class_accuracy,
-                    mmit_mean_average_precision, top_k_accuracy)
+                    mmit_mean_average_precision, top_k_accuracy, 
+                    micro_accuracy, macro_accuracy,
+                    micro_top_k_accuracy, macro_top_k_accuracy
+                   )
 from .pipelines import Compose
 
 
@@ -178,7 +181,8 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
         metrics = metrics if isinstance(metrics, (list, tuple)) else [metrics]
         allowed_metrics = [
             'top_k_accuracy', 'mean_class_accuracy', 'mean_average_precision',
-            'mmit_mean_average_precision'
+            'mmit_mean_average_precision', 'micro_macro_accuracy',
+            'micro_top_k_accuracy', 'macro_top_k_accuracy',
         ]
 
         for metric in metrics:
@@ -219,22 +223,44 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
                 log_msg = f'\nmean_acc\t{mean_acc:.4f}'
                 print_log(log_msg, logger=logger)
                 continue
+                
+            if metric == 'micro_macro_accuracy':
+                micro_acc = micro_accuracy(results, gt_labels)
+                macro_acc = macro_accuracy(results, gt_labels)
+                eval_results['micro_accuracy'] = micro_acc
+                eval_results['macro_accuracy'] = macro_acc
+                log_msg = f'\n micro_accuracy(Overall Accuracy)\t{micro_acc:.4f}\n macro_accuracy(averaged over classes)\t{macro_acc:.4f}'
+                print_log(log_msg, logger=logger)
+                continue
 
             if metric in [
-                    'mean_average_precision', 'mmit_mean_average_precision'
+                    'mean_average_precision', 'mmit_mean_average_precision',
+                    'micro_top_k_accuracy', 'macro_top_k_accuracy',
             ]:
-                gt_labels = [
+                labels = [
                     self.label2array(self.num_classes, label)
                     for label in gt_labels
                 ]
                 if metric == 'mean_average_precision':
-                    mAP = mean_average_precision(results, gt_labels)
+                    mAP = mean_average_precision(results, labels)
                     eval_results['mean_average_precision'] = mAP
                     log_msg = f'\nmean_average_precision\t{mAP:.4f}'
+                    
                 elif metric == 'mmit_mean_average_precision':
-                    mAP = mmit_mean_average_precision(results, gt_labels)
+                    mAP = mmit_mean_average_precision(results, labels)
                     eval_results['mmit_mean_average_precision'] = mAP
                     log_msg = f'\nmmit_mean_average_precision\t{mAP:.4f}'
+                    
+                elif metric == 'micro_top_k_accuracy':
+                    micro_topk_acc = micro_top_k_accuracy(results, labels)
+                    eval_results['micro_top_k_accuracy'] = micro_topk_acc
+                    log_msg = f'\micro_top_k_accuracy\t{micro_topk_acc:.4f}'
+                    
+                elif metric == 'macro_top_k_accuracy':
+                    macro_topk_acc = macro_top_k_accuracy(results, labels)
+                    eval_results['macro_top_k_accuracy'] = macro_topk_acc
+                    log_msg = f'\macro_top_k_accuracy\t{macro_topk_acc:.4f}'
+                    
                 print_log(log_msg, logger=logger)
                 continue
 

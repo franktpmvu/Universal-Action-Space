@@ -6,7 +6,7 @@ from .augmentations import (AudioAmplify, CenterCrop, ColorJitter,
                             Resize, TenCrop, ThreeCrop)
 from .compose import Compose
 from .formating import (Collect, FormatAudioShape, FormatShape, ImageToTensor,
-                        Rename, ToDataContainer, ToTensor, Transpose)
+                        Rename, ToDataContainer, ToTensor, Transpose, LabelToMultiLabel)
 from .loading import (AudioDecode, AudioDecodeInit, AudioFeatureSelector,
                       BuildPseudoClip, DecordDecode, DecordInit,
                       DenseSampleFrames, FrameSelector,
@@ -34,5 +34,5 @@ __all__ = [
     'AudioDecodeInit', 'EntityBoxFlip', 'EntityBoxCrop', 'EntityBoxRescale',
     'RandomScale', 'ImageDecode', 'BuildPseudoClip', 'RandomRescale',
     'PyAVDecodeMotionVector', 'Rename', 'Imgaug', 'UniformSampleFrames',
-    'PoseDecode', 'LoadKineticsPose', 'GeneratePoseTarget'
+    'PoseDecode', 'LoadKineticsPose', 'GeneratePoseTarget','LabelToMultiLabel'
 ]
