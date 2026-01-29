@@ -47,6 +47,10 @@ class ToTensor:
                 to the next transform in pipeline.
         """
         for key in self.keys:
+#             if 'label' in key:
+#             print(f' see this !!! ori {results[key].shape}')
+#             print(f' see this !!! aft {to_tensor(results[key]).shape}')
+                
             results[key] = to_tensor(results[key])
         return results
 
@@ -229,6 +233,8 @@ class Collect:
         """
         data = {}
         for key in self.keys:
+#             if 'label' in key:
+#             print(f' see this !!! in collect {results[key].shape}')
             data[key] = results[key]
 
         if len(self.meta_keys) != 0:
@@ -370,3 +376,25 @@ class FormatAudioShape:
         repr_str = self.__class__.__name__
         repr_str += f"(input_format='{self.input_format}')"
         return repr_str
+
+@PIPELINES.register_module()
+class LabelToMultiLabel:
+    """Convert list of label indices to multi-hot tensor for multi-label classification.
+
+    Args:
+        num_classes (int): Total number of classes.
+    """
+
+    def __init__(self, num_classes):
+        self.num_classes = num_classes
+
+    def __call__(self, results):
+        label = results['label']  # a list of ints like [2, 40]
+        multi_hot = np.zeros(self.num_classes, dtype=np.float32)
+        for l in label:
+            multi_hot[int(l)] = 1.0
+        results['label'] = multi_hot
+        return results
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}(num_classes={self.num_classes})'

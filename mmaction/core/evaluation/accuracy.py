@@ -86,6 +86,32 @@ def mean_class_accuracy(scores, labels):
 
     return mean_class_acc
 
+def micro_accuracy(scores, labels):
+    """Calculate micro accuracy (overall accuracy across all classes).
+
+    Args:
+        scores (list[np.ndarray] | np.ndarray): Prediction scores for each class.
+        labels (list[int] | np.ndarray): Ground truth labels.
+
+    Returns:
+        float: Micro accuracy.
+    """
+    pred = np.argmax(scores, axis=1)
+    if isinstance(pred, list):
+        pred = np.array(pred)
+    if isinstance(labels, list):
+        labels = np.array(labels)
+
+    correct = np.sum(pred == labels)
+    total = len(labels)
+    accuracy = correct / total if total > 0 else 0.0
+    accuracy = np.float32(accuracy)
+
+    return accuracy
+
+def macro_accuracy(scores, labels):
+    return mean_class_accuracy(scores, labels)
+
 
 def top_k_accuracy(scores, labels, topk=(1, )):
     """Calculate top k accuracy score.
@@ -107,6 +133,53 @@ def top_k_accuracy(scores, labels, topk=(1, )):
         res.append(topk_acc_score)
 
     return res
+
+
+def micro_top_k_accuracy(scores, labels, topk = (1, )):
+    scores = np.array(scores)
+    labels = np.array(labels).astype(int) 
+    
+    res = []
+    for k in topk:
+        max_k_preds = np.argsort(scores, axis = 1)[:, -k:]
+        one_hot = np.zeros_like(scores, dtype = int)
+        row_indices = np.arange(scores.shape[0])[:, np.newaxis]
+        one_hot[row_indices, max_k_preds] = 1
+
+        match_array = (0 < (one_hot & labels)).any(axis = 1).astype(int)
+
+        topk_acc_score = match_array.sum() / match_array.shape[0]
+        res.append(topk_acc_score)
+
+    return res[0]
+
+
+def macro_top_k_accuracy(scores, labels, topk = (1,)):
+    scores = np.array(scores)
+    labels = np.array(labels).astype(int) 
+    num_classes = scores.shape[1]
+
+    res = []
+    for k in topk:
+        max_k_preds = np.argsort(scores, axis = 1)[:, -k:]
+        one_hot = np.zeros_like(scores, dtype = int)
+        row_indices = np.arange(scores.shape[0])[:, np.newaxis]
+        one_hot[row_indices, max_k_preds] = 1
+
+        class_accs = []
+        for c in range(num_classes):
+            t = (1 == labels[:, c])
+            if 0 == gt_mask.sum():
+                continue
+
+            hits = one_hot[gt_mask, c]
+            class_acc = hits.sum() / gt_mask.sum()
+            class_accs.append(class_acc)
+
+        macro_acc = np.mean(class_accs)
+        res.append(macro_acc)
+
+    return res[0]
 
 
 def mmit_mean_average_precision(scores, labels):
