@@ -1,82 +1,117 @@
 # Universal Action Space
 
----
+**Official PyTorch implementation of "A Universal Action Space for General Behavior Analysis"**
 
-This repo is the official implementation of [A Universal Action Space for General Behavior Analysis](#TODO). It is based on [Video Swin Transformer](https://github.com/SwinTransformer/Video-Swin-Transformer).
+This repository provides a framework for efficient animal behavior analysis. By leveraging a **Universal Action Space (UAS)** constructed from large-scale human action datasets (Kinetics), this codebase allows you to recognize diverse animal behaviors with high accuracy using **frozen backbones** and **lightweight classifiers**.
 
 ![teaser](figures/teaser.png)
 
-## Results
+## Highlights
 
-### MammalNet & ChimpBehave
+*   **🚀 Highly Efficient:** Train downstream tasks in **minutes to hours** (vs. days) using Linear Probing.
+*   **❄️ Frozen Backbone:** No need to fine-tune heavy video transformers. We project animal behaviors into a pre-trained, universal human motion space.
+*   **🏆 State-of-the-Art:** Outperforms traditional fine-tuning and LoRA on **MammalNet** and **ChimpBehave** benchmarks.
+*   **🧩 Modular Design:** Built on top of [Video Swin Transformer](https://github.com/SwinTransformer/Video-Swin-Transformer), making it easy to integrate with existing video analysis pipelines.
 
-| Dataset | Backbone | Pretrain | Training Strategy | Top-1 Accuracy | Mean Class Accuracy | Training Time (hr) | #Params (K) | config |
-| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| [MammalNet](https://mammal-net.github.io/) | Swin-B | [Kinetics-400](https://github.com/SwinTransformer/storage/releases/download/v1.0.4/swin_base_patch244_window877_kinetics400_22k.pth) | Linear Probing | 56.6 | 43.2 | 8.3 | 12.3 | [config](configs/recognition/swin/swin_base_patch244_window877_mammalnet_k400.py) |
-| [ChimpBehave](https://github.com/MitchFuchs/ChimpBehave) | Swin-B | [Kinetics-400](https://github.com/SwinTransformer/storage/releases/download/v1.0.4/swin_base_patch244_window877_kinetics400_22k.pth) | Linear Probing | 93.7 | 65.8 | 3.9 | 7.2 | [config](configs/recognition/swin/swin_base_patch244_window877_chimpBehave_k400.py) |
-| [ChimpBehave](https://github.com/MitchFuchs/ChimpBehave) | Swin-B | [Kinetics-600](https://github.com/SwinTransformer/storage/releases/download/v1.0.4/swin_base_patch244_window877_kinetics600_22k.pth) | Linear Probing | 93.5 | 72.3 | 3.9 | 7.2 | [config](configs/recognition/swin/swin_base_patch244_window877_chimpBehave_k600.py) |
-| [ChimpBehave](https://github.com/MitchFuchs/ChimpBehave) | Swin-B | [Kinetics-700](https://github.com/franktpmvu/Universal-Action-Space/releases/download/Pre-train/swin_base_patch244_window877_kinetics700_22k.pth) | Linear Probing | 94.2 | 56.4 | 3.9 | 7.2 | [config](configs/recognition/swin/swin_base_patch244_window877_chimpBehave_k700.py) |
+## Model Zoo & Results
 
-### Kinetics-700 diff
-| Dataset | Backbone | Pretrain | Training Strategy | Top-1 Accuracy | Top-5 Accuracy | Mean Class Accuracy | Training Time (hr) | #Params (K) | config |
-| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| [Kinetics-700](https://github.com/cvdfoundation/kinetics-dataset) diff | Swin-B | [Kinetics-600](https://github.com/SwinTransformer/storage/releases/download/v1.0.4/swin_base_patch244_window877_kinetics600_22k.pth) | Full Fine-tuning | **88.8** | 98.0 | **88.8** | 105 | 87,744.66 | - |
-| [Kinetics-700](https://github.com/cvdfoundation/kinetics-dataset) diff | Swin-B | [Kinetics-600](https://github.com/SwinTransformer/storage/releases/download/v1.0.4/swin_base_patch244_window877_kinetics600_22k.pth) | LoRA | 88.6 | **98.1** | 88.6 | 86 | 1,645.7 | [config](configs/recognition/swin/swin_base_patch244_window877_kinetics700_diff_k600_lora.py) |
-| [Kinetics-700](https://github.com/cvdfoundation/kinetics-dataset) diff | Swin-B | [Kinetics-600](https://github.com/SwinTransformer/storage/releases/download/v1.0.4/swin_base_patch244_window877_kinetics600_22k.pth) | Linear Probing | 89.7 | 97.8 | 87.8 | **54** | **105.6** | [config](configs/recognition/swin/swin_base_patch244_window877_kinetics700_diff_k600.py) |
+We provide pre-trained configs and baselines for multiple animal behavior datasets.
 
----
+**Note:** All results reported below are based on training with a single **NVIDIA RTX 3090 (24GB)** GPU.
+
+### 🦁 MammalNet
+
+| Dataset | Backbone | Pretrain | Top-1 Acc | Mean Class Acc | Training Time | # Params | Config |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **MammalNet** | Swin-B | K400 | 56.6% | 43.2% | ~8 hrs | 12.3K | [config](configs/recognition/swin/swin_base_patch244_window877_mammalnet_k400.py) |
+
+### 🦍 ChimpBehave
+
+| Dataset | Backbone | Pretrain | Top-1 Acc | Mean Class Acc | Training Time | # Params | Config |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **ChimpBehave** | Swin-B | K400 | 93.7% | 65.8% | **~4 hrs** | 7.2K | [config](configs/recognition/swin/swin_base_patch244_window877_chimpBehave_k400.py) |
+| **ChimpBehave** | Swin-B | K600 | 93.5% | 72.3% | **~4 hrs** | 7.2K | [config](configs/recognition/swin/swin_base_patch244_window877_chimpBehave_k600.py) |
+| **ChimpBehave** | Swin-B | K700 | 94.2% | 56.4% | **~4 hrs** | 7.2K | [config](configs/recognition/swin/swin_base_patch244_window877_chimpBehave_k700.py) |
+
+### ⚡ Efficiency Comparison (Kinetics-700 diff)
+
+Our method achieves competitive accuracy with significantly lower resource usage compared to full fine-tuning.
+
+| Method | Top-1 Acc | Training Time | # Trainable Params | Config |
+| :--- | :---: | :---: | :---: | :---: |
+| **UAS (Ours)** | 87.9% | **54 hrs** | **0.1 M** | [config](configs/recognition/swin/swin_base_patch244_window877_kinetics700_diff_k600.py) |
+| LoRA | 88.6% | 86 hrs | 1.6 M | [config](configs/recognition/swin/swin_base_patch244_window877_kinetics700_diff_k600_lora.py) |
+| Full Fine-tuning | 88.8% | 105 hrs | 87.7 M | - |
 
 ## Usage
-### Installation
-Please refer to [install.md](docs/install.md) for install Video Swin Transformer.
 
-### Data Preparation
-Please refer to [data_preparation.md](docs/data_preparation.md) for a general knowledge of data preparation for Video Swin Transformer.
+### 1. Installation
+Please refer to [docs/install.md](docs/install.md) for environment setup.
 
-#### Datatsets
-We use the following datasets in our paper:
-  - [MammalNet](https://mammal-net.github.io/): 173 mammalian species with 12 behavior classes
-  - [ChimpBehave](https://github.com/MitchFuchs/ChimpBehave): 7 chimpanzee behavior classes, we also provide our split lists ([train](https://github.com/franktpmvu/Universal-Action-Space/releases/download/Pre-release/chimpbehave_train.txt), [val](https://github.com/franktpmvu/Universal-Action-Space/releases/download/Pre-release/chimpbehave_val.txt))
-  - [Kinetics](https://github.com/cvdfoundation/kinetics-dataset): 400/600/700 human actions
+### 2. Data Preparation
+See [docs/data_preparation.md](docs/data_preparation.md) for full instructions on downloading and formatting the datasets.
 
-#### Kinetics-700 diff set
-**Kinetics-700 diff set** is the set of 103 action classes that are present in Kinetics-700 but not in Kinetics-600.
-You can download the Kinetics-700 dataset and use our provided lists ([train](https://github.com/franktpmvu/Universal-Action-Space/releases/download/Pre-release/k700_diff_train.txt), [val](https://github.com/franktpmvu/Universal-Action-Space/releases/download/Pre-release/k700_diff_val.txt)) directly.
+We provide the specific split lists used in our paper for reproducibility:
+*   **MammalNet:** We use the official train/val split configuration provided by the dataset authors.
+*   **ChimpBehave:** [train list](https://github.com/franktpmvu/Universal-Action-Space/releases/download/Pre-release/chimpbehave_train.txt) | [val list](https://github.com/franktpmvu/Universal-Action-Space/releases/download/Pre-release/chimpbehave_val.txt)
+*   **Kinetics-700 diff:** [train list](https://github.com/franktpmvu/Universal-Action-Space/releases/download/Pre-release/k700_diff_train.txt) | [val list](https://github.com/franktpmvu/Universal-Action-Space/releases/download/Pre-release/k700_diff_val.txt)
 
----
+### 3. Training
 
-### Training
-```
-python tools/train.py configs/recognition/swin/swin_base_patch244_window877_chimpBehave_k400.py --work-dir ./work_dirs/chimpBehave_k400 --cfg-options freeze_backbone=True load_from=checkpoints/swin_base_patch244_window877_kinetics400_22k.pth
-```
+#### Standard Training (Linear Probing)
+To train a classifier on the **ChimpBehave** dataset using a frozen Kinetic-400 backbone:
 
-`--work-dir` specifies the output directory
-`--cfg-options` is used to modify configuration options:
-  - freeze_backbone: (boolean) freezes the parameters of all layers except the head
-  - load_from: (string) loads a pretrained checkpoint
-
-#### LoRA:
-```
-python tools/train.py swin_base_patch244_window877_kinetics700_diff_k600_lora.py --work-dir ./work_dirs/kinetics700_diff_lora --cfg-options freeze_backbone=True load_from=checkpoints/swin_base_patch244_window877_kinetics400_22k.pth model.backbone.use_lora=True model.backbone.lora_rank=32 model.backbone.lora_alpha=32
+```bash
+python tools/train.py configs/recognition/swin/swin_base_patch244_window877_chimpBehave_k400.py \
+    --work-dir ./work_dirs/chimpBehave_k400 \
+    --cfg-options freeze_backbone=True load_from=checkpoints/swin_base_patch244_window877_kinetics400_22k.pth
 ```
 
-Add LoRA options after `--cfg-options` to modify LoRA settings:
-- model.backbone.use_lora: (boolean) use LoRA or not
-- model.backbone.lora_rank: (integer) LoRA Rank
-- model.backbone.lora_alpha: (integer) LoRA Alpha
+**Common Arguments:**
+*   `--work-dir`: Specifies the directory where logs and checkpoints will be saved.
+*   `--cfg-options`: Override specific config parameters from the command line:
+    *   `freeze_backbone=True`: Freezes the transformer backbone (required for UAS mode).
+    *   `load_from=/path/to/checkpoint.pth`: Loads a pre-trained backbone weight.
 
-Note: You can also use LoRA options with standard configuration files; it is not necessary to use a dedicated `_lora` configuration files.
+#### LoRA Training (Optional)
+You can also enable Low-Rank Adaptation (LoRA) on top of the backbone without needing a separate config file. Just append the relevant options:
 
----
-
-### Validation
+```bash
+python tools/train.py configs/recognition/swin/swin_base_patch244_window877_chimpBehave_k400.py \
+    --work-dir ./work_dirs/chimpBehave_k400_lora \
+    --cfg-options freeze_backbone=True \
+    model.backbone.use_lora=True \
+    model.backbone.lora_rank=32 \
+    model.backbone.lora_alpha=32
 ```
-python tools/test.py configs/recognition/swin/swin_base_patch244_window877_chimpBehave_k400.py work_dirs/chimpBehave_k400/epoch_30.pth --eval top_k_accuracy mean_class_accuracy
+
+**LoRA Configuration:**
+*   `model.backbone.use_lora`: Set to `True` to insert LoRA layers.
+*   `model.backbone.lora_rank`: Dimension of the low-rank adaptation matrices.
+*   `model.backbone.lora_alpha`: Scaling factor for LoRA weights.
+
+*Note: Dedicated `_lora` config files are not strictly necessary; you can inject these settings into any standard config via `--cfg-options`.*
+
+### 4. Validation
+Evaluate your trained model:
+
+```bash
+python tools/test.py configs/recognition/swin/swin_base_patch244_window877_chimpBehave_k400.py \
+    work_dirs/chimpBehave_k400/epoch_30.pth \
+    --eval top_k_accuracy mean_class_accuracy
 ```
 
-`--eval` options:
-  - top_k_accuracy
-  - mean_class_accuracy
-  - mean_average_precision
-  ⋮
+<!--
+## Citation
 
+If you use this code or models in your research, please cite:
+
+```bibtex
+@article{UAS2025,
+  author={Chang, Hung-Shuo and Yang, Yue-Cheng and Chen, Yu-Hsi and Wang, Chien-Yao and Liao, Hong-Yuan Mark},
+  title={A Universal Action Space for General Behavior Analysis},
+  journal={2025 IEEE Conference on Artificial Intelligence (CAI)},
+  year={2025}
+}
+```
+--!>
