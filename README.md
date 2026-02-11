@@ -21,17 +21,17 @@ We provide pre-trained configs and baselines for multiple animal behavior datase
 
 ### 🦁 MammalNet
 
-| Dataset | Backbone | Pretrain | Top-1 Acc | Mean Class Acc | Training Time | # Params | Config |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **MammalNet** | Swin-B | K400 | 56.6% | 43.2% | ~8 hrs | 12.3K | [config](configs/recognition/swin/swin_base_patch244_window877_mammalnet_k400.py) |
+| Dataset | Backbone | Pretrain | Top-1 Acc | Mean Class Acc | Training Time | # Params | Config | Chkpt |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **MammalNet** | Swin-B | [K400](https://github.com/franktpmvu/Universal-Action-Space/releases/download/Pre-train/swin_base_patch244_window877_kinetics400_22k.pth) | 56.6% | 43.2% | ~8 hrs | 12.3K | [config](configs/recognition/swin/swin_base_patch244_window877_mammalnet_k400.py) | [github](https://github.com/franktpmvu/Universal-Action-Space/releases/download/Checkpoints/mammalnet_k400_UAS_epoch_30.pth) |
 
 ### 🦍 ChimpBehave
 
-| Dataset | Backbone | Pretrain | Top-1 Acc | Mean Class Acc | Training Time | # Params | Config |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **ChimpBehave** | Swin-B | K400 | 93.7% | 65.8% | **~4 hrs** | 7.2K | [config](configs/recognition/swin/swin_base_patch244_window877_chimpBehave_k400.py) |
-| **ChimpBehave** | Swin-B | K600 | 93.5% | 72.3% | **~4 hrs** | 7.2K | [config](configs/recognition/swin/swin_base_patch244_window877_chimpBehave_k600.py) |
-| **ChimpBehave** | Swin-B | K700 | 94.2% | 56.4% | **~4 hrs** | 7.2K | [config](configs/recognition/swin/swin_base_patch244_window877_chimpBehave_k700.py) |
+| Dataset | Backbone | Pretrain | Top-1 Acc | Mean Class Acc | Training Time | # Params | Config | Chkpt |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **ChimpBehave** | Swin-B | [K400](https://github.com/franktpmvu/Universal-Action-Space/releases/download/Pre-train/swin_base_patch244_window877_kinetics400_22k.pth) | 93.7% | 65.8% | **~4 hrs** | 7.2K | [config](configs/recognition/swin/swin_base_patch244_window877_chimpBehave_k400.py) | [github](https://github.com/franktpmvu/Universal-Action-Space/releases/download/Checkpoints/chimpbehave_k400_UAS_epoch_30.pth) |
+| **ChimpBehave** | Swin-B | [K600](https://github.com/franktpmvu/Universal-Action-Space/releases/download/Pre-train/swin_base_patch244_window877_kinetics600_22k.pth) | 93.5% | 72.3% | **~4 hrs** | 7.2K | [config](configs/recognition/swin/swin_base_patch244_window877_chimpBehave_k600.py) | [github](https://github.com/franktpmvu/Universal-Action-Space/releases/download/Checkpoints/chimpbehave_k600_UAS_epoch_30.pth) |
+| **ChimpBehave** | Swin-B | [K700](https://github.com/franktpmvu/Universal-Action-Space/releases/download/Pre-train/swin_base_patch244_window877_kinetics700_22k.pth) | 94.2% | 56.4% | **~4 hrs** | 7.2K | [config](configs/recognition/swin/swin_base_patch244_window877_chimpBehave_k700.py) | [github](https://github.com/franktpmvu/Universal-Action-Space/releases/download/Checkpoints/chimpbehave_k700_UAS_epoch_30.pth) |
 
 ### ⚡ Efficiency Comparison (Kinetics-700 diff)
 
